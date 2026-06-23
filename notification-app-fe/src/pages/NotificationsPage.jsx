@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
   Alert,
   Badge,
@@ -14,29 +14,46 @@ import NotificationsIcon from "@mui/icons-material/Notifications";
 import { NotificationCard } from "../components/NotificationCard";
 import { NotificationFilter } from "../components/NotificationFilter";
 import { useNotifications } from "../hooks/useNotifications";
+import { Log } from "../utils/logger";
 
-export function NotificationsPage() {
-  const [filter, setFilter] = useState();
-  const [page, setPage] = useState("1");
+export default function NotificationsPage() {
+  const [filter, setFilter] = useState("All");
+  const [page, setPage] = useState(1);
 
-  const { notifications, totalPages, loading, error } = useNotifications();
+  // Log page load major UI event
+  useEffect(() => {
+    Log("frontend", "info", "page", "Notifications page loaded");
+  }, []);
 
-  const unreadCount = 2;
+  const { notifications, totalPages, loading, error } =
+    useNotifications({
+      page,
+      notification_type: filter === "All" ? undefined : filter,
+    });
 
-  const handleFilterChange = (newFilter) => {
+  const unreadCount = notifications?.filter(n => !n.read).length || 0;
 
+  const handleFilterChange = async (newFilter) => {
+    setFilter(newFilter);
+    setPage(1);
+
+    await Log("frontend", "info", "page", `Filter changed to ${newFilter}`);
   };
 
-  const handlePageChange = (_, newPage) => {
+  const handlePageChange = async (_, newPage) => {
+    setPage(newPage);
 
+    await Log("frontend", "info", "page", `Page changed to ${newPage}`);
   };
 
   return (
     <Box sx={{ maxWidth: 720, mx: "auto", px: 2, py: 4 }}>
+      {/* HEADER */}
       <Stack direction="row" alignItems="center" spacing={1.5} mb={3}>
         <Badge badgeContent={unreadCount} color="primary" max={99}>
           <NotificationsIcon sx={{ fontSize: 28 }} />
         </Badge>
+
         <Typography variant="h5" fontWeight={700}>
           Notifications
         </Typography>
@@ -44,36 +61,49 @@ export function NotificationsPage() {
 
       <Divider sx={{ mb: 3 }} />
 
-      <Box sx={{ marginBottom: 3 }}>
-        <NotificationFilter value={filter} onChange={handleFilterChange} />
+      {/* FILTER */}
+      <Box mb={3}>
+        <NotificationFilter
+          value={filter}
+          onChange={handleFilterChange}
+        />
       </Box>
 
-      {true && (
+      {/* LOADING */}
+      {loading && (
         <Box display="flex" justifyContent="center" py={6}>
           <CircularProgress />
         </Box>
       )}
 
+      {/* ERROR */}
       {!loading && error && (
-        <Alert severity="error">Failed to load notifications: {error}</Alert>
+        <Alert severity="error">
+          Failed to load notifications
+        </Alert>
       )}
 
-      {loading && !error && notifications.length == "0" && (
-        <Alert severity="info">Something message</Alert>
+      {/* EMPTY */}
+      {!loading && !error && notifications.length === 0 && (
+        <Alert severity="info">
+          No notifications found
+        </Alert>
       )}
 
-      {loading && !error && notifications.length > 0 && (
+      {/* LIST */}
+      {!loading && !error && notifications.length > 0 && (
         <Stack spacing={1.5}>
           {notifications.map((n) => (
-            <></>
+            <NotificationCard key={n.ID} data={n} />
           ))}
         </Stack>
       )}
 
-      {!loading && (
+      {/* PAGINATION */}
+      {!loading && !error && notifications.length > 0 && (
         <Box display="flex" justifyContent="center" mt={4}>
           <Pagination
-            count={totalPages}
+            count={totalPages || 1}
             page={page}
             onChange={handlePageChange}
             color="primary"
